@@ -33,7 +33,7 @@
     </p-table>
   </div>
 </div>
-<p-dialog maskStyleClass="backdrop-blur-sm" header="Create Note" [(visible)]="visible" [style]="{ width: '75rem' }" styleClass="!border-0 !bg-transparent" [maximizable]="true">
+<p-dialog maskStyleClass="backdrop-blur-sm" header="Create Note" [(visible)]="visible" [style]="{ width: '75rem' }" styleClass="!border-0 !bg-transparent" [maximizable]="true" [draggable]="false">
   <div class="flex items-center gap-4 mb-4">
     <label for="notename" class="font-semibold w-24">Name</label>
     <input pInputText id="notename" class="flex-auto" autocomplete="off" />
