@@ -7,7 +7,8 @@ import {TableModule} from 'primeng/table';
 import {NgForOf} from '@angular/common';
 import {Dialog} from 'primeng/dialog';
 import {Editor, EditorModule} from 'primeng/editor';
-import {FormsModule} from '@angular/forms';
+import {FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
+import {NoteServiceService} from '../services/note-service.service';
 
 interface Column {
   field: string;
@@ -25,8 +26,8 @@ interface Column {
     NgForOf,
     Dialog,
     Editor,
-    FormsModule
-
+    FormsModule,
+    ReactiveFormsModule
   ],
   templateUrl: './note-list.component.html',
   styleUrl: './note-list.component.css'
@@ -34,10 +35,15 @@ interface Column {
 export class NoteListComponent implements OnInit {
   notes!: string[];
   visible = false;
-  noteContent: string = '';
   cols!: Column[];
 
-  constructor() {}
+
+  noteForm = new FormGroup({
+    title: new FormControl<string|null>(null),
+    content: new FormControl<string|null>(null)
+  })
+
+  constructor(private noteService: NoteServiceService) {}
 
   ngOnInit() {
 
@@ -52,5 +58,20 @@ export class NoteListComponent implements OnInit {
 
   showDialogCreateNote() {
     this.visible = true;
+  }
+
+  submitNote(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.noteService.createNote(JSON.stringify(this.noteForm.value)).subscribe(
+      (response) => {
+        console.log(response);
+      },
+      (error) => {
+        console.log(error);
+      }
+    );
+    console.log(JSON.stringify(this.noteForm.value));
   }
 }
