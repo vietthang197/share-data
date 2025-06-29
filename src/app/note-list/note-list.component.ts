@@ -8,7 +8,9 @@ import {NgForOf} from '@angular/common';
 import {Dialog} from 'primeng/dialog';
 import {Editor, EditorModule} from 'primeng/editor';
 import {FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
-import {NoteServiceService} from '../services/note-service.service';
+import {NoteService} from '../services/note.service';
+import {Toast} from 'primeng/toast';
+import {MessageService} from 'primeng/api';
 
 interface Column {
   field: string;
@@ -27,10 +29,12 @@ interface Column {
     Dialog,
     Editor,
     FormsModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    Toast
   ],
   templateUrl: './note-list.component.html',
-  styleUrl: './note-list.component.css'
+  styleUrl: './note-list.component.css',
+  providers: [MessageService]
 })
 export class NoteListComponent implements OnInit {
   notes!: string[];
@@ -43,7 +47,7 @@ export class NoteListComponent implements OnInit {
     content: new FormControl<string|null>(null)
   })
 
-  constructor(private noteService: NoteServiceService) {}
+  constructor(private noteService: NoteService, private messageService: MessageService) { }
 
   ngOnInit() {
 
@@ -64,14 +68,17 @@ export class NoteListComponent implements OnInit {
     event.preventDefault();
     event.stopPropagation();
 
-    this.noteService.createNote(JSON.stringify(this.noteForm.value)).subscribe(
-      (response) => {
-        console.log(response);
+    this.noteService.createNote(JSON.stringify(this.noteForm.value)).subscribe({
+      next: (response) => {
+        this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Create note successfully', life: 3000 })
+        this.visible = false;
       },
-      (error) => {
-        console.log(error);
-      }
-    );
+      error: (error) => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+      },
+      complete: () => {
+      },
+    });
     console.log(JSON.stringify(this.noteForm.value));
   }
 }

@@ -1,66 +1,36 @@
 import {Component, OnInit} from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import {Router, RouterOutlet} from '@angular/router';
 import {Button} from 'primeng/button';
 import {Menubar} from 'primeng/menubar';
 import {MenuItem} from 'primeng/api';
+import {Toast} from 'primeng/toast';
+import {AuthService} from './services/auth.service';
+import {MenuService} from './services/menu.service';
+import {Avatar} from 'primeng/avatar';
+import {InputText} from 'primeng/inputtext';
+import {Menu} from 'primeng/menu';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, Menubar],
+  imports: [RouterOutlet, Menubar, Toast, Avatar, InputText, Button, Menu],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
 export class AppComponent implements OnInit {
   title = 'share-data';
 
-  items: MenuItem[] | undefined;
+  constructor(protected menuService: MenuService, protected authService: AuthService, private router: Router) {
+  }
 
   ngOnInit() {
-    this.items = [
-      {
-        label: 'Home',
-        icon: 'pi pi-home'
-      },
-      {
-        label: 'Note list',
-        icon: 'pi pi-address-book'
-      },
-      {
-        label: 'Projects',
-        icon: 'pi pi-search',
-        items: [
-          {
-            label: 'Components',
-            icon: 'pi pi-bolt'
-          },
-          {
-            label: 'Blocks',
-            icon: 'pi pi-server'
-          },
-          {
-            label: 'UI Kit',
-            icon: 'pi pi-pencil'
-          },
-          {
-            label: 'Templates',
-            icon: 'pi pi-palette',
-            items: [
-              {
-                label: 'Apollo',
-                icon: 'pi pi-palette'
-              },
-              {
-                label: 'Ultima',
-                icon: 'pi pi-palette'
-              }
-            ]
-          }
-        ]
-      },
-      {
-        label: 'Contact',
-        icon: 'pi pi-envelope'
-      }
-    ]
+    const refreshToken = this.authService.getRefreshToken();
+    if (refreshToken) {
+      this.authService.refreshToken(refreshToken);
+    }
+    this.menuService.initMenu();
+  }
+
+  doLogin() {
+    this.router.navigate(['login']);
   }
 }

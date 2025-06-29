@@ -1,0 +1,29 @@
+<div class="flex justify-items-center justify-center">
+<div class="card" [style]="{ width: '30rem', overflow: 'hidden' }">
+  <div class="flex flex-col md:flex-row">
+    <div class="w-full flex flex-col items-center justify-center gap-3 py-5">
+      <form autocomplete="on" [formGroup]="formLogin">
+        <p class="text-3xl font-bold">Sign in to save your note</p>
+        @if (signinErrorMessage) {
+          <p-message severity="error" icon="pi pi-times-circle" styleClass="mb-4 mt-4">{{signinErrorMessage}}</p-message>
+        }
+        <div class="flex flex-col gap-2 mt-4">
+          <label for="email">Email <span class="text-red-500">*</span></label>
+          <input pInputText id="email" type="email" formControlName="email" required/>
+        </div>
+        <div class="flex flex-col gap-2  mt-4">
+          <label for="password">Password <span class="text-red-500">*</span></label>
+          <input pInputText id="password" type="password" formControlName="password" required/>
+        </div>
+        <div class="mt-4">
+          <p-button label="Signin" icon="pi pi-user" class="w-full max-w-[17.35rem]" styleClass="w-full mx-auto" (onClick)="doLogin($event)" [disabled]="!formLogin.valid"/>
+        </div>
+      </form>
+      <span>OR</span>
+      <div class="flex">
+        <a routerLink="/register" class="text-blue-600 visited:text-purple-600 ..."> Sign up for an account </a>
+      </div>
+    </div>
+  </div>
+</div>
+</div>

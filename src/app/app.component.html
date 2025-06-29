@@ -1,4 +1,18 @@
 <div class="card">
-  <p-menubar [model]="items" />
+  <p-menubar [model]="menuService.menuItems()">
+    <ng-template #end>
+      @if (menuService.isAuthenticated()) {
+        <div class="flex items-center gap-2">
+          <p-menu [tabindex]="undefined" #menuUserInfo [model]="menuService.getMenuUserInfo()"  [popup]="true" />
+          <button class="text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center cursor-pointer border border-gray-200" (click)="menuUserInfo.toggle($event)"> <span class="pi pi-user"> </span>&nbsp; {{ menuService.currentUserName() }}</button>
+        </div>
+      } @else {
+        <div class="flex items-center gap-2">
+          <p-button severity="secondary" label="Login/ Register" icon="pi pi-user" (onClick)="doLogin()"/>
+        </div>
+      }
+
+    </ng-template>
+  </p-menubar>
 </div>
 <router-outlet />
