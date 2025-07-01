@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {environment} from '../../environments/environment';
-import {Observable, of, Subscription, switchMap, timer} from 'rxjs';
+import {firstValueFrom, Observable, of, Subscription, switchMap, timer} from 'rxjs';
 import {BaseResponse} from '../dto/base-response';
 import {LoginResponse} from '../dto/login-response';
 import {LoginRequest} from '../dto/login-request';
@@ -18,6 +18,7 @@ export class AuthService {
 
   private refreshTokenJob: Subscription | null = null;
   private authEventRegisterList: AuthEvent[] = [];
+  private accessToken: string | null = null;
 
   constructor(private http: HttpClient, private cookieService: CookieService, private router: Router) { }
 
@@ -39,7 +40,23 @@ export class AuthService {
         if (loginResponse && loginResponse.status == 200) {
           this.storeRefreshToken(loginResponse);
           this.storeAccessToken(loginResponse.accessToken);
-          this.refreshToken(loginResponse.refreshToken);
+          const decodedToken = jwtDecode<JwtPayload>(loginResponse.accessToken);
+          const refreshToken = loginResponse.refreshToken;
+          if (decodedToken && decodedToken.exp) {
+            const calTime = decodedToken.exp * 1000 - Date.now() - 10000;
+            if (this.refreshTokenJob) {
+              this.refreshTokenJob.unsubscribe();
+            }
+            this.refreshTokenJob = timer(calTime).pipe(
+              switchMap(async () => {
+                // Gọi lại chính nó (chú ý tránh stack overflow nếu lỗi)
+                const response = await this.refreshToken(refreshToken);
+                return of(null);
+              })
+            ).subscribe(() => {
+              console.log('Call refreshToken done!');
+            });
+          }
           this.authEventRegisterList.forEach(event => {
             event.onLoginSuccess();
           })
@@ -62,18 +79,17 @@ export class AuthService {
 
   storeAccessToken(accessToken?: string) {
     if (accessToken) {
-      localStorage.setItem("accessToken", accessToken);
+      this.accessToken = accessToken;
     }
   }
 
   getAccessToken() {
-    return localStorage.getItem("accessToken");
+    return this.accessToken;
   }
 
   isAuthenticated() {
-    const accessToken = localStorage.getItem("accessToken");
-    if (accessToken) {
-      const decodedToken = jwtDecode<JwtPayload>(accessToken);
+    if (this.accessToken) {
+      const decodedToken = jwtDecode<JwtPayload>(this.accessToken);
       if (decodedToken) {
         const now = Date.now();
         return !(!decodedToken.exp || (now / 1000) > decodedToken.exp);
@@ -87,7 +103,7 @@ export class AuthService {
     if (!this.isAuthenticated()) {
       return null;
     } else {
-      const accessToken = localStorage.getItem("accessToken");
+      const accessToken = this.accessToken;
       if (accessToken) {
         const decodedToken = jwtDecode<JwtPayload>(accessToken);
         if (decodedToken) {
@@ -101,64 +117,76 @@ export class AuthService {
     }
   }
 
-  refreshToken(refreshToken: string) {
-    console.log('Starting refreshToken done!');
-    this.http.post<{ accessToken?: string , status?: number, message?: string}>(environment.API_ENDPOINT + '/api/v1/auth/refresh-token', {
-      refreshToken: refreshToken,
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    }).subscribe({
-      next: (res) => {
-        if (res.status == 200) {
+  async refreshToken(refreshToken: string | null): Promise<void> {
+    try {
+      if (!refreshToken) {
+        this.removeAccessToken();
+        this.removeRefreshToken();
+        await this.router.navigateByUrl('/login', { skipLocationChange: true });
+      } else {
+        const res = await firstValueFrom(
+          this.http.post<{ accessToken?: string; status?: number; message?: string }>(
+            environment.API_ENDPOINT + '/api/v1/auth/refresh-token',
+            { refreshToken },
+            {
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          )
+        );
+
+        if (res.status === 200) {
           this.authEventRegisterList.forEach(event => {
             event.onRefreshTokenSuccess();
-          })
+          });
+
           const newToken = res.accessToken;
-          // Lưu token mới (VD: cookie, localStorage, memory...)
           this.storeAccessToken(newToken);
-          // Lên lịch lại với token mới
+
           if (newToken) {
             const decodedToken = jwtDecode<JwtPayload>(newToken);
             if (decodedToken.exp) {
               const calTime = decodedToken.exp * 1000 - Date.now() - 10000;
+              if (this.refreshTokenJob) {
+                this.refreshTokenJob.unsubscribe();
+              }
               this.refreshTokenJob = timer(calTime).pipe(
-                switchMap(value => {
+                switchMap(() => {
+                  // Gọi lại chính nó (chú ý tránh stack overflow nếu lỗi)
                   this.refreshToken(refreshToken);
-                  return of(value);
+                  return of(null);
                 })
               ).subscribe(() => {
                 console.log('Call refreshToken done!');
               });
             }
           }
+
         } else {
           this.authEventRegisterList.forEach(event => {
             event.onRefreshTokenFailure();
-          })
-          this.removeAccessToken();
-          this.removeRefreshToken();
-          this.router.navigateByUrl('/login', { skipLocationChange: true }).then(value => {
           });
 
+          this.removeAccessToken();
+          this.removeRefreshToken();
+          await this.router.navigateByUrl('/login', { skipLocationChange: true });
         }
-      },
-      error: (err) => {
-        console.error('Refresh token thất bại:', err);
-        this.removeAccessToken();
-        this.removeRefreshToken();
-        this.router.navigateByUrl('/login', { skipLocationChange: true }).then(value => {
-        });
-        this.authEventRegisterList.forEach(event => {
-          event.onRefreshTokenFailure();
-        })
       }
-    });
+    } catch (err) {
+      console.error('Refresh token thất bại:', err);
+      this.removeAccessToken();
+      this.removeRefreshToken();
+      await this.router.navigateByUrl('/login', { skipLocationChange: true });
+
+      this.authEventRegisterList.forEach(event => {
+        event.onRefreshTokenFailure();
+      });
+    }
   }
 
   removeAccessToken() {
-    localStorage.removeItem("accessToken");
+    this.accessToken = null;
   }
 
   removeRefreshToken() {
@@ -177,5 +205,9 @@ export class AuthService {
 
   registerAuthEvent(authEvent: AuthEvent){
     this.authEventRegisterList.push(authEvent);
+  }
+
+  init() {
+    return Promise.resolve(this.refreshToken(this.getRefreshToken()));
   }
 }

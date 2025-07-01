@@ -12,7 +12,7 @@ import {Menu} from 'primeng/menu';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, Menubar, Toast, Avatar, InputText, Button, Menu],
+  imports: [RouterOutlet, Menubar, Button, Menu],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -22,11 +22,7 @@ export class AppComponent implements OnInit {
   constructor(protected menuService: MenuService, protected authService: AuthService, private router: Router) {
   }
 
-  ngOnInit() {
-    const refreshToken = this.authService.getRefreshToken();
-    if (refreshToken) {
-      this.authService.refreshToken(refreshToken);
-    }
+  async ngOnInit() {
     this.menuService.initMenu();
   }
 

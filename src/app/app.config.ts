@@ -6,6 +6,7 @@ import { providePrimeNG } from 'primeng/config';
 import Aura from '@primeng/themes/aura';
 import {provideAnimationsAsync} from '@angular/platform-browser/animations/async';
 import { provideHttpClient } from '@angular/common/http';
+import {provideAuthService} from './services/auth.provider';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -23,6 +24,7 @@ export const appConfig: ApplicationConfig = {
           }
         }
       }
-    })
+    }),
+    provideAuthService
   ]
 };

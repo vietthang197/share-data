@@ -50,7 +50,6 @@ export class RegisterComponent implements OnInit {
             email: this.signupForm.value['email'],
             password: this.signupForm.value['password']
           }).pipe(catchError(loginError => {
-            console.log(loginError);
             return of(null);
           }))
         } else {

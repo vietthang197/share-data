@@ -9,33 +9,29 @@ import {AuthEvent} from '../event/auth-event';
 export class MenuService implements OnInit, AuthEvent {
 
   menuItems = signal<MenuItem[]>([]);
-  isAuthenticated = signal(false)
-  currentUserName = signal<string | undefined>('');
 
   constructor(private authService: AuthService) {
     this.authService.registerAuthEvent(this);
   }
 
   onLogout(): void {
-    this.isAuthenticated.set(this.authService.isAuthenticated());
+
   }
 
   onLoginSuccess(): void {
-    this.isAuthenticated.set(this.authService.isAuthenticated());
-    this.currentUserName.set(this.authService.getCurrentUser()?.email);
+
   }
 
   onRefreshTokenSuccess(): void {
-    this.isAuthenticated.set(this.authService.isAuthenticated());
-    this.currentUserName.set(this.authService.getCurrentUser()?.email);
+
   }
 
   onRefreshTokenFailure(): void {
-    this.isAuthenticated.set(this.authService.isAuthenticated());
+
   }
 
   ngOnInit(): void {
-    this.isAuthenticated.set(this.authService.isAuthenticated());
+
   }
 
   initMenu() {
@@ -43,14 +39,12 @@ export class MenuService implements OnInit, AuthEvent {
       {
         label: 'Home',
         icon: 'pi pi-home',
-        url: '/',
-        target: '_self'
+        routerLink: ['/']
       },
       {
         label: 'Note list',
         icon: 'pi pi-address-book',
-        url: '/',
-        target: '_self'
+        routerLink: ['/']
       },
       {
         label: 'Projects',
