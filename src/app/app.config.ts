@@ -25,6 +25,6 @@ export const appConfig: ApplicationConfig = {
         }
       }
     }),
-    provideAuthService
+    provideAuthService()
   ]
 };

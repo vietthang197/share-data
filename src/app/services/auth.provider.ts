@@ -1,13 +1,17 @@
-import { APP_INITIALIZER, Provider } from '@angular/core';
+import {inject} from '@angular/core';
 import {AuthService} from './auth.service';
+import { makeEnvironmentProviders } from '@angular/core';
+import { provideAppInitializer } from '@angular/core';
 
-export function initializeAuthService(authService: AuthService): () => Promise<void> {
-  return () => authService.init();
+export function initializeAuthService(): Promise<void> {
+  const authService = inject(AuthService);
+  return authService.init();
 }
 
-export const provideAuthService: Provider = {
-  provide: APP_INITIALIZER,
-  useFactory: initializeAuthService,
-  deps: [AuthService],
-  multi: true
-};
+export function provideAuthService() {
+  return makeEnvironmentProviders([
+    provideAppInitializer(() => initializeAuthService())
+  ]);
+}
+
+
