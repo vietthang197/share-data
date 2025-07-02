@@ -2,6 +2,9 @@ import { Injectable } from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {environment} from '../../environments/environment';
 import {AuthService} from './auth.service';
+import {PaginationDto} from '../dto/pagination-dto';
+import {NoteDto} from '../dto/note-dto';
+import {GenQrShareNoteResponse} from '../dto/gen-qr-share-note-response';
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +15,37 @@ export class NoteService {
 
   createNote(request: string) {
     return this.http.post(environment.API_ENDPOINT +'/api/v1/note', request, {
+      headers: {
+        'Content-Type': 'application/json',
+        "Authorization": `${this.authService.getAccessToken()}`
+      }
+    });
+  }
+
+  getNotes(first: number, rows: number) {
+    return this.http.get<PaginationDto<NoteDto>>(environment.API_ENDPOINT +'/api/v1/note', {
+      headers: {
+        'Content-Type': 'application/json',
+        "Authorization": `${this.authService.getAccessToken()}`
+      },
+      params: {
+        size: rows,
+        page: first
+      }
+    });
+  }
+
+  getContent(noteId: string | undefined) {
+    return this.http.get<NoteDto>(environment.API_ENDPOINT +'/api/v1/note/' +  noteId, {
+      headers: {
+        'Content-Type': 'application/json',
+        "Authorization": `${this.authService.getAccessToken()}`
+      }
+    });
+  }
+
+  genQrShareNote(noteId: string) {
+    return this.http.get<GenQrShareNoteResponse>(environment.API_ENDPOINT +'/api/v1/note/gen-qr/' +  noteId, {
       headers: {
         'Content-Type': 'application/json',
         "Authorization": `${this.authService.getAccessToken()}`

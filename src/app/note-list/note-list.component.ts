@@ -1,16 +1,22 @@
-import {Component, OnInit} from '@angular/core';
+import {Component, OnInit, signal} from '@angular/core';
 import {InputText} from 'primeng/inputtext';
 import {InputGroup} from 'primeng/inputgroup';
 import {InputGroupAddon} from 'primeng/inputgroupaddon';
-import {Button} from 'primeng/button';
-import {TableModule} from 'primeng/table';
-import {NgForOf} from '@angular/common';
+import {Button, ButtonDirective, ButtonIcon, ButtonLabel} from 'primeng/button';
+import {TableModule, TablePageEvent} from 'primeng/table';
+import {CommonModule, NgForOf} from '@angular/common';
 import {Dialog} from 'primeng/dialog';
-import {Editor, EditorModule} from 'primeng/editor';
+import {Editor,} from 'primeng/editor';
 import {FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {NoteService} from '../services/note.service';
 import {Toast} from 'primeng/toast';
 import {MessageService} from 'primeng/api';
+import {NoteDto} from '../dto/note-dto';
+import {Tooltip} from 'primeng/tooltip';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import {Fieldset} from 'primeng/fieldset';
+import {Image} from 'primeng/image';
+import {Message} from 'primeng/message';
 
 interface Column {
   field: string;
@@ -30,38 +36,56 @@ interface Column {
     Editor,
     FormsModule,
     ReactiveFormsModule,
-    Toast
+    Toast,
+    CommonModule,
+    Tooltip,
+    Fieldset,
+    Image,
+    Message,
+    ButtonDirective,
+    ButtonLabel,
+    ButtonIcon
   ],
   templateUrl: './note-list.component.html',
   styleUrl: './note-list.component.css',
   providers: [MessageService]
 })
 export class NoteListComponent implements OnInit {
-  notes!: string[];
-  visible = false;
-  cols!: Column[];
+  notes: NoteDto[] = [];
+  visibleEditor = false;
+  visibleViewer = false;
+  visibleQr = false;
+  colsTable!: Column[];
+  first = 0;
+  rows = 10;
 
+  safeContent: SafeHtml = '';
+  currentNote?: NoteDto;
+  qrNote?: string;
+  qrLink = signal<string>('');
 
   noteForm = new FormGroup({
     title: new FormControl<string|null>(null),
     content: new FormControl<string|null>(null)
   })
 
-  constructor(private noteService: NoteService, private messageService: MessageService) { }
+  constructor(private noteService: NoteService, private messageService: MessageService, private sanitizer: DomSanitizer) { }
 
   ngOnInit() {
 
-    this.cols = [
+    this.colsTable = [
       { field: 'id', header: 'ID' },
-      { field: 'createdDt', header: 'Date' },
-      { field: 'name', header: 'Name' },
+      { field: 'createdAt', header: 'Created at' },
+      { field: 'title', header: 'Title' },
       { field: 'content', header: 'Content' },
       { field: 'action', header: 'Action' }
     ];
+
+    this.getNotes(this.first, this.rows);
   }
 
   showDialogCreateNote() {
-    this.visible = true;
+    this.visibleEditor = true;
   }
 
   submitNote(event: Event) {
@@ -71,14 +95,85 @@ export class NoteListComponent implements OnInit {
     this.noteService.createNote(JSON.stringify(this.noteForm.value)).subscribe({
       next: (response) => {
         this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Create note successfully', life: 3000 })
-        this.visible = false;
       },
       error: (error) => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
       },
       complete: () => {
+        this.noteForm.reset();
+        this.visibleEditor = false;
       },
     });
-    console.log(JSON.stringify(this.noteForm.value));
+  }
+
+  getNotes(first: number, rows: number) {
+    this.noteService.getNotes(this.first, this.rows).subscribe({
+      next: (response) => {
+        this.notes = response.content;
+      },
+      error: (error) => {
+
+      },
+      complete: () => {
+
+      }
+    })
+  }
+  next() {
+    this.first = this.first + this.rows;
+  }
+
+  prev() {
+    this.first = this.first - this.rows;
+  }
+
+  reset() {
+    this.first = 0;
+  }
+
+  pageChange(event: TablePageEvent) {
+    this.first = event.first;
+    this.rows = event.rows;
+    this.getNotes(this.first, this.rows);
+  }
+
+  isLastPage(): boolean {
+    return this.notes ? this.first + this.rows >= this.notes.length : true;
+  }
+
+  isFirstPage(): boolean {
+    return this.notes ? this.first === 0 : true;
+  }
+
+  viewNoteContent(noteId: string) {
+    this.noteService.getContent(noteId).subscribe({
+      next: (response) => {
+        this.visibleViewer = true
+        this.safeContent = this.sanitizer.bypassSecurityTrustHtml(response.content);
+        this.currentNote = response;
+      },
+      error: (error) => {
+
+      },
+      complete: () => {
+
+      }
+    })
+  }
+
+  showQr(noteId: string) {
+    this.noteService.genQrShareNote(noteId).subscribe({
+      next: (response) => {
+        this.visibleQr = true;
+        this.qrNote = 'data:image/jpeg;base64,' + response.qr;
+        this.qrLink.set(response.link);
+      },
+      error: (error) => {
+
+      },
+      complete: () => {
+
+      }
+    })
   }
 }
