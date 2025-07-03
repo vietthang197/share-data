@@ -23,7 +23,7 @@ export class NoteService {
     });
   }
 
-  getNotes(first: number, rows: number) {
+  getNotes(first: number, rows: number, query: string) {
     return this.http.get<PaginationDto<NoteDto>>(environment.API_ENDPOINT +'/api/v1/note', {
       headers: {
         'Content-Type': 'application/json',
@@ -31,7 +31,8 @@ export class NoteService {
       },
       params: {
         size: rows,
-        page: first
+        page: first,
+        q: query
       }
     });
   }

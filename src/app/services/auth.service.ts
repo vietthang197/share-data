@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import {Injectable, OnInit} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {environment} from '../../environments/environment';
 import {firstValueFrom, Observable, of, Subscription, switchMap, timer} from 'rxjs';
@@ -9,29 +9,34 @@ import {CookieService} from './cookie.service';
 import {jwtDecode, JwtPayload} from "jwt-decode";
 import {UserAccount} from '../dto/user-account';
 import {Router} from '@angular/router';
-import {AuthEvent} from '../event/auth-event';
+import {EventBusService} from './event-bus.service';
+import {EventBusTypeEnum} from '../dto/event-bus-type-enum';
 
 @Injectable({
   providedIn: 'root'
 })
-export class AuthService {
+export class AuthService implements OnInit {
 
   private refreshTokenJob: Subscription | null = null;
-  private authEventRegisterList: AuthEvent[] = [];
   private accessToken: string | null = null;
 
-  constructor(private http: HttpClient, private cookieService: CookieService, private router: Router) { }
+  constructor(private http: HttpClient, private cookieService: CookieService, private router: Router, private eventBusService: EventBusService) {
+  }
 
-  signup(request: string) : Observable<BaseResponse> {
-    return this.http.post<BaseResponse>(environment.API_ENDPOINT +'/api/v1/auth/register', request, {
+  ngOnInit(): void {
+    console.log('Auth service initialized');
+  }
+
+  signup(request: string): Observable<BaseResponse> {
+    return this.http.post<BaseResponse>(environment.API_ENDPOINT + '/api/v1/auth/register', request, {
       headers: {
         'Content-Type': 'application/json'
       }
     });
   }
 
-  login(request: LoginRequest) : Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(environment.API_ENDPOINT +'/api/v1/auth/login', request, {
+  login(request: LoginRequest): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(environment.API_ENDPOINT + '/api/v1/auth/login', request, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -57,8 +62,9 @@ export class AuthService {
               console.log('Call refreshToken done!');
             });
           }
-          this.authEventRegisterList.forEach(event => {
-            event.onLoginSuccess();
+          this.eventBusService.publish({
+            type: EventBusTypeEnum.LOGIN_SUCCESS,
+            message: 'Logged in successfully.',
           })
         }
         return of(loginResponse);
@@ -122,12 +128,12 @@ export class AuthService {
       if (!refreshToken) {
         this.removeAccessToken();
         this.removeRefreshToken();
-        await this.router.navigateByUrl('/login', { skipLocationChange: true });
+        await this.router.navigateByUrl('/login', {skipLocationChange: true});
       } else {
         const res = await firstValueFrom(
           this.http.post<{ accessToken?: string; status?: number; message?: string }>(
             environment.API_ENDPOINT + '/api/v1/auth/refresh-token',
-            { refreshToken },
+            {refreshToken},
             {
               headers: {
                 'Content-Type': 'application/json'
@@ -137,9 +143,10 @@ export class AuthService {
         );
 
         if (res.status === 200) {
-          this.authEventRegisterList.forEach(event => {
-            event.onRefreshTokenSuccess();
-          });
+          this.eventBusService.publish({
+            type: EventBusTypeEnum.REFRESH_TOKEN_SUCCESS,
+            message: 'Refresh token successfully.',
+          })
 
           const newToken = res.accessToken;
           this.storeAccessToken(newToken);
@@ -164,24 +171,26 @@ export class AuthService {
           }
 
         } else {
-          this.authEventRegisterList.forEach(event => {
-            event.onRefreshTokenFailure();
-          });
+          this.eventBusService.publish({
+            type: EventBusTypeEnum.REFRESH_TOKEN_FAIL,
+            message: 'Refresh token failed.',
+          })
 
           this.removeAccessToken();
           this.removeRefreshToken();
-          await this.router.navigateByUrl('/login', { skipLocationChange: true });
+          await this.router.navigateByUrl('/login', {skipLocationChange: true});
         }
       }
     } catch (err) {
       console.error('Refresh token thất bại:', err);
       this.removeAccessToken();
       this.removeRefreshToken();
-      await this.router.navigateByUrl('/login', { skipLocationChange: true });
+      await this.router.navigateByUrl('/login', {skipLocationChange: true});
 
-      this.authEventRegisterList.forEach(event => {
-        event.onRefreshTokenFailure();
-      });
+      this.eventBusService.publish({
+        type: EventBusTypeEnum.REFRESH_TOKEN_FAIL,
+        message: 'Refresh token failed.',
+      })
     }
   }
 
@@ -196,15 +205,12 @@ export class AuthService {
   logout() {
     this.removeAccessToken();
     this.removeRefreshToken();
-    this.authEventRegisterList.forEach(event => {
-      event.onLogout();
+    this.eventBusService.publish({
+      type: EventBusTypeEnum.LOGOUT,
+      message: 'Logout',
     })
     this.router.navigateByUrl('/login').then(() => {
     });
-  }
-
-  registerAuthEvent(authEvent: AuthEvent){
-    this.authEventRegisterList.push(authEvent);
   }
 
   init() {

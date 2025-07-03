@@ -1,88 +1,59 @@
-import {Injectable, OnInit, signal} from '@angular/core';
+import {Injectable, OnDestroy, OnInit, signal} from '@angular/core';
 import {MenuItem, MenuItemCommandEvent} from 'primeng/api';
 import {AuthService} from './auth.service';
-import {AuthEvent} from '../event/auth-event';
+import {EventBusService} from './event-bus.service';
+import {EventBusTypeEnum} from '../dto/event-bus-type-enum';
+import {EventBusMessage} from '../dto/event-bus-message';
+import {Subscription} from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
 })
-export class MenuService implements OnInit, AuthEvent {
+export class MenuService implements OnInit, OnDestroy {
 
   menuItems = signal<MenuItem[]>([]);
+  private subscriptions: Subscription[] = [];
 
-  constructor(private authService: AuthService) {
-    this.authService.registerAuthEvent(this);
+  constructor(private authService: AuthService, private eventBusService: EventBusService) {
+    this.subscriptions.push(
+      this.eventBusService.events$.subscribe((eventData: EventBusMessage) => {
+        switch (eventData.type) {
+          case EventBusTypeEnum.LOGIN_SUCCESS:
+          case EventBusTypeEnum.REFRESH_TOKEN_SUCCESS:
+            this.menuItems.set([
+              {
+                label: 'Home',
+                icon: 'pi pi-home',
+                routerLink: ['/']
+              },
+              {
+                label: 'Note list',
+                icon: 'pi pi-address-book',
+                routerLink: ['/']
+              },
+              {
+                label: 'Contact',
+                icon: 'pi pi-envelope',
+                routerLink: ['/contact']
+              }
+            ])
+            break;
+          case EventBusTypeEnum.LOGOUT:
+          case EventBusTypeEnum.LOGIN_FAIL:
+          case EventBusTypeEnum.REFRESH_TOKEN_FAIL:
+            this.menuItems.set([])
+            break;
+        }
+      })
+    );
   }
 
-  onLogout(): void {
-
-  }
-
-  onLoginSuccess(): void {
-
-  }
-
-  onRefreshTokenSuccess(): void {
-
-  }
-
-  onRefreshTokenFailure(): void {
-
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
   ngOnInit(): void {
 
-  }
-
-  initMenu() {
-    this.menuItems.set([
-      {
-        label: 'Home',
-        icon: 'pi pi-home',
-        routerLink: ['/']
-      },
-      {
-        label: 'Note list',
-        icon: 'pi pi-address-book',
-        routerLink: ['/']
-      },
-      {
-        label: 'Projects',
-        icon: 'pi pi-search',
-        items: [
-          {
-            label: 'Components',
-            icon: 'pi pi-bolt'
-          },
-          {
-            label: 'Blocks',
-            icon: 'pi pi-server'
-          },
-          {
-            label: 'UI Kit',
-            icon: 'pi pi-pencil',
-          },
-          {
-            label: 'Templates',
-            icon: 'pi pi-palette',
-            items: [
-              {
-                label: 'Apollo',
-                icon: 'pi pi-palette'
-              },
-              {
-                label: 'Ultima',
-                icon: 'pi pi-palette',
-              }
-            ]
-          }
-        ]
-      },
-      {
-        label: 'Contact',
-        icon: 'pi pi-envelope',
-      }
-    ]);
   }
 
   getMenuUserInfo() {
@@ -97,7 +68,7 @@ export class MenuService implements OnInit, AuthEvent {
           {
             label: 'Sign out',
             icon: 'pi pi-sign-out',
-            command: (event: MenuItemCommandEvent)=>  {
+            command: (event: MenuItemCommandEvent) => {
               this.authService.logout();
             }
           }

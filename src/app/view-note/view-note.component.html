@@ -1,0 +1,15 @@
+<div class="w-full">
+  <div class="mt-10 p-10">
+    <p-card>
+      @if (note) {
+        <p class="font-bold">Title: {{note.title}}</p>
+        <p class="font-bold mt-2">Created at:</p>
+        <p class="mt-2">{{note.createdAt | date:'dd/MM/yyyy HH:mm:ss':'UTC+7'}}</p>
+        <p class="font-bold mt-2">Content</p>
+        <div class="m-0" [innerHTML]="sanitizer.bypassSecurityTrustHtml(note.content)">
+        </div>
+      }
+    </p-card>
+  </div>
+</div>
+<p-toast/>

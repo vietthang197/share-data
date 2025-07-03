@@ -4,7 +4,7 @@ import {InputGroup} from 'primeng/inputgroup';
 import {InputGroupAddon} from 'primeng/inputgroupaddon';
 import {Button, ButtonDirective, ButtonIcon, ButtonLabel} from 'primeng/button';
 import {TableModule, TablePageEvent} from 'primeng/table';
-import {CommonModule, NgForOf} from '@angular/common';
+import { CommonModule } from '@angular/common';
 import {Dialog} from 'primeng/dialog';
 import {Editor,} from 'primeng/editor';
 import {FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
@@ -18,6 +18,8 @@ import {Fieldset} from 'primeng/fieldset';
 import {Image} from 'primeng/image';
 import {Message} from 'primeng/message';
 import {catchError, of, switchMap, tap} from 'rxjs';
+import {AuthService} from '../services/auth.service';
+import {Router} from '@angular/router';
 
 interface Column {
   field: string;
@@ -32,7 +34,6 @@ interface Column {
     InputGroupAddon,
     Button,
     TableModule,
-    NgForOf,
     Dialog,
     Editor,
     FormsModule,
@@ -45,7 +46,7 @@ interface Column {
     ButtonDirective,
     ButtonLabel,
     ButtonIcon
-  ],
+],
   templateUrl: './note-list.component.html',
   styleUrl: './note-list.component.css',
   providers: [MessageService]
@@ -59,10 +60,10 @@ export class NoteListComponent implements OnInit {
   first = 0;
   rows = 10;
   totalRecords = 0;
+  searchNoteQuery: string = '';
 
-  safeContent: SafeHtml = '';
   currentNote?: NoteDto;
-  qrNote?: string;
+  qrNote = signal<string>('');
   qrLink = signal<string>('');
 
   noteForm = new FormGroup({
@@ -70,11 +71,13 @@ export class NoteListComponent implements OnInit {
     content: new FormControl<string|null>(null)
   })
 
-  constructor(private noteService: NoteService, private messageService: MessageService, private sanitizer: DomSanitizer) { }
+  constructor(private noteService: NoteService, private messageService: MessageService, protected sanitizer: DomSanitizer,
+              protected authService: AuthService, private router: Router) { }
 
   ngOnInit() {
 
     this.colsTable = [
+      { field: 'stt', header: 'Stt' },
       { field: 'id', header: 'ID' },
       { field: 'createdAt', header: 'Created at' },
       { field: 'title', header: 'Title' },
@@ -82,11 +85,17 @@ export class NoteListComponent implements OnInit {
       { field: 'action', header: 'Action' }
     ];
 
-    this.getNotes(this.first, this.rows);
+    if (this.authService.isAuthenticated()) {
+      this.getNotes(this.first, this.rows, this.searchNoteQuery);
+    }
   }
 
   showDialogCreateNote() {
-    this.visibleEditor = true;
+    if (this.authService.isAuthenticated()) {
+      this.visibleEditor = true;
+    } else {
+      this.router.navigate(['/login']);
+    }
   }
 
   submitNote(event: Event) {
@@ -95,7 +104,7 @@ export class NoteListComponent implements OnInit {
 
     this.noteService.createNote(JSON.stringify(this.noteForm.value)).pipe(
       switchMap(value => {
-        return this.noteService.getNotes(this.first, this.rows).pipe(catchError(getNoteError => {
+        return this.noteService.getNotes(this.first, this.rows, this.searchNoteQuery).pipe(catchError(getNoteError => {
           return of(null);
         }));
       }),
@@ -119,8 +128,8 @@ export class NoteListComponent implements OnInit {
     });
   }
 
-  getNotes(first: number, rows: number) {
-    this.noteService.getNotes(this.first, this.rows).subscribe({
+  getNotes(first: number, rows: number, query: string) {
+    this.noteService.getNotes(this.first, this.rows, query).subscribe({
       next: (response) => {
         this.notes = response.content;
         this.totalRecords = response.page.totalElements;
@@ -143,13 +152,13 @@ export class NoteListComponent implements OnInit {
 
   reset() {
     this.first = 0;
-    this.getNotes(this.first, this.rows);
+    this.getNotes(this.first, this.rows, this.searchNoteQuery);
   }
 
   pageChange(event: TablePageEvent) {
     this.first = event.first;
     this.rows = event.rows;
-    this.getNotes(this.first, this.rows);
+    this.getNotes(this.first, this.rows, this.searchNoteQuery);
   }
 
   isLastPage(): boolean {
@@ -163,8 +172,7 @@ export class NoteListComponent implements OnInit {
   viewNoteContent(noteId: string) {
     this.noteService.getContent(noteId).subscribe({
       next: (response) => {
-        this.visibleViewer = true
-        this.safeContent = this.sanitizer.bypassSecurityTrustHtml(response.content);
+        this.visibleViewer = true;
         this.currentNote = response;
       },
       error: (error) => {
@@ -180,7 +188,7 @@ export class NoteListComponent implements OnInit {
     this.noteService.genQrShareNote(noteId).subscribe({
       next: (response) => {
         this.visibleQr = true;
-        this.qrNote = 'data:image/jpeg;base64,' + response.qr;
+        this.qrNote.set('data:image/jpeg;base64,' + response.qr);
         this.qrLink.set(response.link);
       },
       error: (error) => {
@@ -190,5 +198,21 @@ export class NoteListComponent implements OnInit {
 
       }
     })
+  }
+
+  searchNote($event: Event) {
+    $event.stopPropagation();
+    $event.preventDefault();
+
+    this.getNotes(this.first, this.rows, this.searchNoteQuery);
+  }
+
+  copyLink(qrLink: string) {
+    navigator.clipboard.writeText(qrLink).then(r => {});
+    this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Copy successful', life: 3000 })
+  }
+
+  openLinkViewContent(noteId: string) {
+    this.router.navigate([`/note/${noteId}`]);
   }
 }

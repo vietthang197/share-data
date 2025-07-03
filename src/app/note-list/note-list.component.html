@@ -2,9 +2,9 @@
   <div class="flex justify-center items-center mt-10">
     <div class="max-w-md min-w-md">
       <p-inputgroup>
-        <input pInputText placeholder="Search your note"/>
+        <input pInputText placeholder="Search your note title" [(ngModel)]="searchNoteQuery"/>
         <p-inputgroup-addon>
-          <p-button icon="pi pi-search" severity="secondary" variant="text"/>
+          <p-button icon="pi pi-search" severity="secondary" variant="text" (click)="searchNote($event)"/>
         </p-inputgroup-addon>
       </p-inputgroup>
     </div>
@@ -27,35 +27,45 @@
              [first]="first"
              [totalRecords]="totalRecords"
              [showCurrentPageReport]="true"
+             [lazy]="true"
              [tableStyle]="{ 'min-width': '50rem' }"
              currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
              (onPage)="pageChange($event)"
              [rowsPerPageOptions]="[10, 25, 50]">
       <ng-template #header let-columns>
         <tr>
-          <th *ngFor="let col of columns">
-            {{ col.header }}
-          </th>
+          @for (col of columns; track col) {
+            <th>
+              {{ col.header }}
+            </th>
+          }
         </tr>
       </ng-template>
-      <ng-template #body let-note let-columns="columns">
+      <ng-template #body let-note let-columns="columns" let-rowIndex="rowIndex">
         <tr>
+          <td>
+            {{ rowIndex + 1 }}
+          </td>
           <td>
             {{ note['id'] }}
           </td>
           <td>
-            {{ note['createdAt'] | date:'dd/MM/yyyy HH:mm:ss':'UTC+7'}}
+            {{ note['createdAt'] | date:'dd/MM/yyyy HH:mm:ss':'UTC+7' }}
           </td>
           <td>
             {{ note['title'] }}
           </td>
           <td>
-            <p-button icon="pi pi-eye" severity="help" class="mr-2" [rounded]="true" [outlined]="true" pTooltip="View content" (click)="viewNoteContent(note['id'])"/>
+            <p-button icon="pi pi-eye" severity="help" class="mr-2" [rounded]="true" [outlined]="true"
+                      pTooltip="View content" (click)="viewNoteContent(note['id'])"/>
+            <p-button icon="pi pi-arrow-up-right" severity="help" [rounded]="true" [outlined]="true"
+                      pTooltip="View content with other page" (click)="openLinkViewContent(note['id'])"/>
           </td>
           <td>
-            <p-button icon="pi pi-share-alt" class="mr-2" severity="info" [rounded]="true" [outlined]="true" pTooltip="Share your note" (click)="showQr(note['id'])"/>
-            <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true"  pTooltip="Edit"/>
-            <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true"  pTooltip="Delete"/>
+            <p-button icon="pi pi-share-alt" class="mr-2" severity="info" [rounded]="true" [outlined]="true"
+                      pTooltip="Share your note" (click)="showQr(note['id'])"/>
+            <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" pTooltip="Edit"/>
+            <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" pTooltip="Delete"/>
           </td>
         </tr>
       </ng-template>
@@ -86,30 +96,36 @@
           styleClass="!border-0 !bg-transparent" [maximizable]="true" [draggable]="false">
   <p-fieldset legend="Title" [toggleable]="false">
     <p>
-      {{currentNote?.title}}
+      @if (currentNote) {
+        {{ sanitizer.bypassSecurityTrustHtml(currentNote.title) }}
+      } @else {
+        {{ '' }}
+      }
     </p>
   </p-fieldset>
   <p-fieldset legend="Created at" [toggleable]="false">
     <p>
-      {{currentNote?.createdAt | date:'dd/MM/yyyy HH:mm:ss':'UTC'}}
+      {{ currentNote?.createdAt | date:'dd/MM/yyyy HH:mm:ss':'UTC' }}
     </p>
   </p-fieldset>
   <p-fieldset legend="Content" [toggleable]="false">
-    <div [innerHTML]="safeContent"></div>
+    @if (currentNote) {
+      <div [innerHTML]="sanitizer.bypassSecurityTrustHtml(currentNote.content)"></div>
+    }
   </p-fieldset>
 </p-dialog>
 
 <p-dialog header="QR share" [modal]="true" [(visible)]="visibleQr" [style]="{ width: '25rem' }">
   <div class="flex justify-center gap-2">
-    <p-image [src]="qrNote" alt="Image" width="250" />
+    <p-image [src]="qrNote()" alt="Image" width="250"/>
   </div>
-  <div class="flex justify-center justify-items-center gap-2">
-    <span>{{qrLink()}}</span>
+  <div class="wrap-break-word">
+    <span>{{ qrLink() }}</span>
   </div>
   <div class="flex justify-center justify-items-center gap-2 mt-4">
     <button pButton>
       <i class="pi pi-copy" pButtonIcon></i>
-      <span pButtonLabel>Copy link</span>
+      <span pButtonLabel (click)="copyLink(qrLink())">Copy link</span>
     </button>
   </div>
 

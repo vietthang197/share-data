@@ -5,15 +5,16 @@ import { routes } from './app.routes';
 import { providePrimeNG } from 'primeng/config';
 import Aura from '@primeng/themes/aura';
 import {provideAnimationsAsync} from '@angular/platform-browser/animations/async';
-import { provideHttpClient } from '@angular/common/http';
+import {provideHttpClient, withFetch} from '@angular/common/http';
 import {provideAuthService} from './services/auth.provider';
+import {EventBusService} from './services/event-bus.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideAnimationsAsync(),
-    provideHttpClient(),
+    provideHttpClient(withFetch()),
     providePrimeNG({
       theme: {
         preset: Aura,
@@ -25,6 +26,7 @@ export const appConfig: ApplicationConfig = {
         }
       }
     }),
-    provideAuthService()
+    provideAuthService(),
+    EventBusService
   ]
 };
