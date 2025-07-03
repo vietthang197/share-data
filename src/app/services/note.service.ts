@@ -5,6 +5,7 @@ import {AuthService} from './auth.service';
 import {PaginationDto} from '../dto/pagination-dto';
 import {NoteDto} from '../dto/note-dto';
 import {GenQrShareNoteResponse} from '../dto/gen-qr-share-note-response';
+import {BaseResponse} from '../dto/base-response';
 
 @Injectable({
   providedIn: 'root'
@@ -14,7 +15,7 @@ export class NoteService {
   constructor(private http: HttpClient, private authService: AuthService) { }
 
   createNote(request: string) {
-    return this.http.post(environment.API_ENDPOINT +'/api/v1/note', request, {
+    return this.http.post<NoteDto>(environment.API_ENDPOINT +'/api/v1/note', request, {
       headers: {
         'Content-Type': 'application/json',
         "Authorization": `${this.authService.getAccessToken()}`

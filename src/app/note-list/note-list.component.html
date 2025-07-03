@@ -25,6 +25,7 @@
     <p-table [columns]="colsTable" [value]="notes" [paginator]="true"
              [rows]="10"
              [first]="first"
+             [totalRecords]="totalRecords"
              [showCurrentPageReport]="true"
              [tableStyle]="{ 'min-width': '50rem' }"
              currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
@@ -43,7 +44,7 @@
             {{ note['id'] }}
           </td>
           <td>
-            {{ note['createdAt'] | date:'dd/MM/yyyy HH:mm:ss':'UTC'}}
+            {{ note['createdAt'] | date:'dd/MM/yyyy HH:mm:ss':'UTC+7'}}
           </td>
           <td>
             {{ note['title'] }}

@@ -17,6 +17,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {Fieldset} from 'primeng/fieldset';
 import {Image} from 'primeng/image';
 import {Message} from 'primeng/message';
+import {catchError, of, switchMap, tap} from 'rxjs';
 
 interface Column {
   field: string;
@@ -41,7 +42,6 @@ interface Column {
     Tooltip,
     Fieldset,
     Image,
-    Message,
     ButtonDirective,
     ButtonLabel,
     ButtonIcon
@@ -58,6 +58,7 @@ export class NoteListComponent implements OnInit {
   colsTable!: Column[];
   first = 0;
   rows = 10;
+  totalRecords = 0;
 
   safeContent: SafeHtml = '';
   currentNote?: NoteDto;
@@ -92,7 +93,19 @@ export class NoteListComponent implements OnInit {
     event.preventDefault();
     event.stopPropagation();
 
-    this.noteService.createNote(JSON.stringify(this.noteForm.value)).subscribe({
+    this.noteService.createNote(JSON.stringify(this.noteForm.value)).pipe(
+      switchMap(value => {
+        return this.noteService.getNotes(this.first, this.rows).pipe(catchError(getNoteError => {
+          return of(null);
+        }));
+      }),
+      tap(pagingResponse => {
+        if (pagingResponse) {
+          this.notes = pagingResponse.content;
+          this.totalRecords = pagingResponse.page.totalElements;
+        }
+      })
+    ).subscribe({
       next: (response) => {
         this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Create note successfully', life: 3000 })
       },
@@ -110,9 +123,10 @@ export class NoteListComponent implements OnInit {
     this.noteService.getNotes(this.first, this.rows).subscribe({
       next: (response) => {
         this.notes = response.content;
+        this.totalRecords = response.page.totalElements;
       },
       error: (error) => {
-
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
       },
       complete: () => {
 
@@ -129,6 +143,7 @@ export class NoteListComponent implements OnInit {
 
   reset() {
     this.first = 0;
+    this.getNotes(this.first, this.rows);
   }
 
   pageChange(event: TablePageEvent) {
@@ -153,7 +168,7 @@ export class NoteListComponent implements OnInit {
         this.currentNote = response;
       },
       error: (error) => {
-
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
       },
       complete: () => {
 
@@ -169,7 +184,7 @@ export class NoteListComponent implements OnInit {
         this.qrLink.set(response.link);
       },
       error: (error) => {
-
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
       },
       complete: () => {
 
