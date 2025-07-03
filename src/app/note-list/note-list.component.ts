@@ -10,16 +10,16 @@ import {Editor,} from 'primeng/editor';
 import {FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {NoteService} from '../services/note.service';
 import {Toast} from 'primeng/toast';
-import {MessageService} from 'primeng/api';
+import {ConfirmationService, MessageService} from 'primeng/api';
 import {NoteDto} from '../dto/note-dto';
 import {Tooltip} from 'primeng/tooltip';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {Fieldset} from 'primeng/fieldset';
 import {Image} from 'primeng/image';
-import {Message} from 'primeng/message';
 import {catchError, of, switchMap, tap} from 'rxjs';
 import {AuthService} from '../services/auth.service';
 import {Router} from '@angular/router';
+import {ConfirmPopup, ConfirmPopupModule} from 'primeng/confirmpopup';
 
 interface Column {
   field: string;
@@ -45,11 +45,12 @@ interface Column {
     Image,
     ButtonDirective,
     ButtonLabel,
-    ButtonIcon
-],
+    ButtonIcon,
+    ConfirmPopupModule
+  ],
   templateUrl: './note-list.component.html',
   styleUrl: './note-list.component.css',
-  providers: [MessageService]
+  providers: [MessageService, ConfirmationService]
 })
 export class NoteListComponent implements OnInit {
   notes: NoteDto[] = [];
@@ -72,7 +73,7 @@ export class NoteListComponent implements OnInit {
   })
 
   constructor(private noteService: NoteService, private messageService: MessageService, protected sanitizer: DomSanitizer,
-              protected authService: AuthService, private router: Router) { }
+              protected authService: AuthService, private router: Router, private confirmationService: ConfirmationService) { }
 
   ngOnInit() {
 
@@ -214,5 +215,28 @@ export class NoteListComponent implements OnInit {
 
   openLinkViewContent(noteId: string) {
     this.router.navigate([`/note/${noteId}`]);
+  }
+
+  deleteNote(noteId: string, $event: Event) {
+    this.confirmationService.confirm({
+      target: $event.currentTarget as EventTarget,
+      message: 'Do you want to delete this record?',
+      icon: 'pi pi-info-circle',
+      rejectButtonProps: {
+        label: 'Cancel',
+        severity: 'secondary',
+        outlined: true
+      },
+      acceptButtonProps: {
+        label: 'Delete',
+        severity: 'danger'
+      },
+      accept: () => {
+        this.messageService.add({ severity: 'info', summary: 'Confirmed', detail: 'Record deleted', life: 3000 });
+      },
+      reject: () => {
+        this.messageService.add({ severity: 'error', summary: 'Rejected', detail: 'You have rejected', life: 3000 });
+      }
+    });
   }
 }
