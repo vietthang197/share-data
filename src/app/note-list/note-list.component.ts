@@ -54,7 +54,8 @@ interface Column {
 })
 export class NoteListComponent implements OnInit {
   notes: NoteDto[] = [];
-  visibleEditor = false;
+  visiblePopupCreator = false;
+  visiblePopupEditor = false;
   visibleViewer = false;
   visibleQr = false;
   colsTable!: Column[];
@@ -63,14 +64,21 @@ export class NoteListComponent implements OnInit {
   totalRecords = 0;
   searchNoteQuery: string = '';
 
-  currentNote?: NoteDto;
+  currentNoteView?: NoteDto;
+  currentNoteEditor?: NoteDto;
   qrNote = signal<string>('');
   qrLink = signal<string>('');
 
-  noteForm = new FormGroup({
+  noteFormCreator = new FormGroup({
     title: new FormControl<string|null>(null),
     content: new FormControl<string|null>(null)
   })
+  noteFormEditor = new FormGroup({
+    id: new FormControl<string|null>(null),
+    title: new FormControl<string|null>(null),
+    content: new FormControl<string|null>(null)
+  })
+
 
   constructor(private noteService: NoteService, private messageService: MessageService, protected sanitizer: DomSanitizer,
               protected authService: AuthService, private router: Router, private confirmationService: ConfirmationService) { }
@@ -92,8 +100,9 @@ export class NoteListComponent implements OnInit {
   }
 
   showDialogCreateNote() {
+    this.noteFormCreator.reset();
     if (this.authService.isAuthenticated()) {
-      this.visibleEditor = true;
+      this.visiblePopupCreator = true;
     } else {
       this.router.navigate(['/login']);
     }
@@ -103,7 +112,7 @@ export class NoteListComponent implements OnInit {
     event.preventDefault();
     event.stopPropagation();
 
-    this.noteService.createNote(JSON.stringify(this.noteForm.value)).pipe(
+    this.noteService.createNote(this.noteFormCreator.value).pipe(
       switchMap(value => {
         return this.noteService.getNotes(this.first, this.rows, this.searchNoteQuery).pipe(catchError(getNoteError => {
           return of(null);
@@ -123,8 +132,8 @@ export class NoteListComponent implements OnInit {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
       },
       complete: () => {
-        this.noteForm.reset();
-        this.visibleEditor = false;
+        this.noteFormCreator.reset();
+        this.visiblePopupCreator = false;
       },
     });
   }
@@ -174,7 +183,7 @@ export class NoteListComponent implements OnInit {
     this.noteService.getContent(noteId).subscribe({
       next: (response) => {
         this.visibleViewer = true;
-        this.currentNote = response;
+        this.currentNoteView = response;
       },
       error: (error) => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
@@ -232,11 +241,80 @@ export class NoteListComponent implements OnInit {
         severity: 'danger'
       },
       accept: () => {
-        this.messageService.add({ severity: 'info', summary: 'Confirmed', detail: 'Record deleted', life: 3000 });
+        this.noteService.deleteNote(noteId).subscribe({
+          next: (response) => {
+            if (response && response.status == 200) {
+              this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Deleted note', life: 3000 });
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 });
+            }
+          },
+          error: (error) => {
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+          },
+          complete: () => {
+            this.getNotes(this.first, this.rows, this.searchNoteQuery);
+          }
+        });
       },
       reject: () => {
         this.messageService.add({ severity: 'error', summary: 'Rejected', detail: 'You have rejected', life: 3000 });
       }
     });
+  }
+
+  openEditNote($event: Event, noteId: string) {
+    this.noteFormEditor.reset();
+    this.noteService.getContent(noteId).subscribe({
+      next: (response) => {
+        this.visiblePopupEditor = true;
+        this.currentNoteEditor = response;
+      },
+      error: (error) => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+      },
+      complete: () => {
+      }
+    })
+  }
+
+  editNote($event: Event) {
+    $event.preventDefault();
+    $event.stopPropagation();
+
+    this.noteService.updateNote(this.noteFormEditor.value).pipe(
+      switchMap(value => {
+        return this.noteService.getNotes(this.first, this.rows, this.searchNoteQuery).pipe(catchError(getNoteError => {
+          return of(null);
+        }));
+      }),
+      tap(pagingResponse => {
+        if (pagingResponse) {
+          this.notes = pagingResponse.content;
+          this.totalRecords = pagingResponse.page.totalElements;
+        }
+      })
+    ).subscribe({
+      next: (response) => {
+        this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Edit note successfully', life: 3000 })
+      },
+      error: (error) => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+      },
+      complete: () => {
+        this.noteFormEditor.reset();
+        this.visiblePopupEditor = false;
+      },
+    });
+  }
+
+  fillFormEditor() {
+    if (this.currentNoteEditor) {
+      this.noteFormEditor.setValue({
+        id: this.currentNoteEditor.id,
+        title: this.currentNoteEditor.title,
+        content: this.currentNoteEditor.content
+      })
+    }
   }
 }

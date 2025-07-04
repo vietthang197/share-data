@@ -14,8 +14,8 @@ export class NoteService {
 
   constructor(private http: HttpClient, private authService: AuthService) { }
 
-  createNote(request: string) {
-    return this.http.post<NoteDto>(environment.API_ENDPOINT +'/api/v1/note', request, {
+  createNote(request: Partial<{ content: string | null; title: string | null }>) {
+    return this.http.post<NoteDto>(environment.API_ENDPOINT +'/api/v1/note', JSON.stringify(request), {
       headers: {
         'Content-Type': 'application/json',
         "Authorization": `${this.authService.getAccessToken()}`
@@ -48,6 +48,24 @@ export class NoteService {
 
   genQrShareNote(noteId: string) {
     return this.http.get<GenQrShareNoteResponse>(environment.API_ENDPOINT +'/api/v1/note/gen-qr/' +  noteId, {
+      headers: {
+        'Content-Type': 'application/json',
+        "Authorization": `${this.authService.getAccessToken()}`
+      }
+    });
+  }
+
+  deleteNote(noteId: string) {
+    return this.http.delete<BaseResponse>(environment.API_ENDPOINT +'/api/v1/note/' +  noteId, {
+      headers: {
+        'Content-Type': 'application/json',
+        "Authorization": `${this.authService.getAccessToken()}`
+      }
+    });
+  }
+
+  updateNote(request: Partial<{ content: string | null; id: string | null; title: string | null }>) {
+    return this.http.put<NoteDto>(environment.API_ENDPOINT +'/api/v1/note/' + request['id'], JSON.stringify(request), {
       headers: {
         'Content-Type': 'application/json',
         "Authorization": `${this.authService.getAccessToken()}`

@@ -64,7 +64,7 @@
           <td>
             <p-button icon="pi pi-share-alt" class="mr-2" severity="info" [rounded]="true" [outlined]="true"
                       pTooltip="Share your note" (click)="showQr(note['id'])"/>
-            <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" pTooltip="Edit"/>
+            <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" pTooltip="Edit" (click)="openEditNote($event, note['id'])"/>
             <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" pTooltip="Delete" (click)="deleteNote(note['id'], $event)"/>
           </td>
         </tr>
@@ -72,10 +72,10 @@
     </p-table>
   </div>
 </div>
-<p-dialog maskStyleClass="backdrop-blur-sm" header="Create Note" [(visible)]="visibleEditor"
+<p-dialog maskStyleClass="backdrop-blur-sm" header="Create Note" [(visible)]="visiblePopupCreator"
           [style]="{ width: '75rem' }"
           styleClass="!border-0 !bg-transparent" [maximizable]="true" [draggable]="false">
-  <form [formGroup]="noteForm" (ngSubmit)="submitNote($event)">
+  <form [formGroup]="noteFormCreator" (ngSubmit)="submitNote($event)">
     <div class="flex items-center gap-4 mb-4">
       <label for="title" class="font-semibold w-24">Title</label>
       <input pInputText id="title" class="flex-auto" autocomplete="off" formControlName="title"/>
@@ -86,7 +86,27 @@
       <p-editor class="w-full" formControlName="content" [style]="{ height: '320px' }"/>
     </div>
     <div class="flex justify-end gap-2">
-      <p-button label="Cancel" severity="secondary" (click)="visibleEditor = false"/>
+      <p-button label="Cancel" severity="secondary" (click)="visiblePopupCreator = false"/>
+      <p-button label="Save" type="submit"/>
+    </div>
+  </form>
+</p-dialog>
+<p-dialog maskStyleClass="backdrop-blur-sm" header="Edit Note" [(visible)]="visiblePopupEditor"
+          [style]="{ width: '75rem' }"
+          styleClass="!border-0 !bg-transparent" [maximizable]="true" [draggable]="false" (onShow)="fillFormEditor()">
+  <form [formGroup]="noteFormEditor" (ngSubmit)="editNote($event)">
+    <input id="id" formControlName="id" type="hidden"/>
+    <div class="flex items-center gap-4 mb-4">
+      <label for="title" class="font-semibold w-24">Title</label>
+      <input pInputText id="title" class="flex-auto" autocomplete="off" formControlName="title"/>
+    </div>
+    <div class="flex items-center gap-4 mb-8">
+      <span class="font-bold">Content</span>
+      <br>
+      <p-editor class="w-full" formControlName="content" [style]="{ height: '320px' }"/>
+    </div>
+    <div class="flex justify-end gap-2">
+      <p-button label="Cancel" severity="secondary" (click)="visiblePopupEditor = false"/>
       <p-button label="Save" type="submit"/>
     </div>
   </form>
@@ -96,8 +116,8 @@
           styleClass="!border-0 !bg-transparent" [maximizable]="true" [draggable]="false">
   <p-fieldset legend="Title" [toggleable]="false">
     <p>
-      @if (currentNote) {
-        {{ sanitizer.bypassSecurityTrustHtml(currentNote.title) }}
+      @if (currentNoteView) {
+        {{ sanitizer.bypassSecurityTrustHtml(currentNoteView.title) }}
       } @else {
         {{ '' }}
       }
@@ -105,12 +125,12 @@
   </p-fieldset>
   <p-fieldset legend="Created at" [toggleable]="false">
     <p>
-      {{ currentNote?.createdAt | date:'dd/MM/yyyy HH:mm:ss':'UTC' }}
+      {{ currentNoteView?.createdAt | date:'dd/MM/yyyy HH:mm:ss':'UTC' }}
     </p>
   </p-fieldset>
   <p-fieldset legend="Content" [toggleable]="false">
-    @if (currentNote) {
-      <div [innerHTML]="sanitizer.bypassSecurityTrustHtml(currentNote.content)"></div>
+    @if (currentNoteView) {
+      <div [innerHTML]="sanitizer.bypassSecurityTrustHtml(currentNoteView.content)"></div>
     }
   </p-fieldset>
 </p-dialog>
