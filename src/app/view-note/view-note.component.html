@@ -1,13 +1,24 @@
 <div class="w-full">
   <div class="mt-10 p-10">
     <p-card>
-      @if (note) {
-        <p class="font-bold">Title: {{note.title}}</p>
-        <p class="font-bold mt-2">Created at:</p>
-        <p class="mt-2">{{note.createdAt | date:'dd/MM/yyyy HH:mm:ss':'UTC+7'}}</p>
-        <p class="font-bold mt-2">Content</p>
-        <div class="m-0" [innerHTML]="sanitizer.bypassSecurityTrustHtml(note.content)">
-        </div>
+      @if(loadingData) {
+        <p-progressbar mode="indeterminate" [style]="{'height': '6px'}"></p-progressbar>
+        <p-skeleton class="mb-2 mt-10" />
+        <p-skeleton width="10rem" class="mb-2" />
+        <p-skeleton width="5rem" class="mb-2" />
+        <p-skeleton height="2rem" class="mb-2" />
+      } @else {
+        @if (note) {
+          <p class="font-bold">Title: {{note.title}}</p>
+          <p class="font-bold mt-2">Created at:</p>
+          <p class="mt-2">{{note.createdAt | date:'dd/MM/yyyy HH:mm:ss':'UTC+7'}}</p>
+          <p class="font-bold mt-2">Content</p>
+          <div class="m-0" [innerHTML]="sanitizer.bypassSecurityTrustHtml(note.content)">
+          </div>
+        }
+        @if (errorMessage) {
+          <p-message severity="error">{{ errorMessage }}</p-message>
+        }
       }
     </p-card>
   </div>

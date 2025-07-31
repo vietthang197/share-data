@@ -6,6 +6,7 @@ import {AuthService} from '../../services/auth.service';
 import {Router, RouterLink} from '@angular/router';
 import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {Message} from 'primeng/message';
+import {AutoFocus} from 'primeng/autofocus';
 
 @Component({
   selector: 'app-login',
@@ -14,7 +15,8 @@ import {Message} from 'primeng/message';
     InputText,
     ReactiveFormsModule,
     Message,
-    RouterLink
+    RouterLink,
+    AutoFocus
   ],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'

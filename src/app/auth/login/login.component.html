@@ -9,7 +9,7 @@
         }
         <div class="flex flex-col gap-2 mt-4">
           <label for="email">Email <span class="text-red-500">*</span></label>
-          <input pInputText id="email" type="email" formControlName="email" required/>
+          <input pInputText id="email" [pAutoFocus]="true" type="email" formControlName="email" required/>
         </div>
         <div class="flex flex-col gap-2  mt-4">
           <label for="password">Password <span class="text-red-500">*</span></label>

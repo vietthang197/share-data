@@ -8,6 +8,7 @@ import {catchError, of, switchMap, tap} from 'rxjs';
 import {Router, RouterLink} from '@angular/router';
 import {Toast} from 'primeng/toast';
 import {MessageService} from 'primeng/api';
+import {AutoFocus} from 'primeng/autofocus';
 
 @Component({
   selector: 'app-register',
@@ -17,7 +18,8 @@ import {MessageService} from 'primeng/api';
     ReactiveFormsModule,
     Message,
     Toast,
-    RouterLink
+    RouterLink,
+    AutoFocus
   ],
   templateUrl: './register.component.html',
   styleUrl: './register.component.css',

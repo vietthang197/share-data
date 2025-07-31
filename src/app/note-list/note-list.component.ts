@@ -4,26 +4,35 @@ import {InputGroup} from 'primeng/inputgroup';
 import {InputGroupAddon} from 'primeng/inputgroupaddon';
 import {Button, ButtonDirective, ButtonIcon, ButtonLabel} from 'primeng/button';
 import {TableModule, TablePageEvent} from 'primeng/table';
-import { CommonModule } from '@angular/common';
+import {CommonModule} from '@angular/common';
 import {Dialog} from 'primeng/dialog';
 import {Editor,} from 'primeng/editor';
-import {FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
+import {FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import {NoteService} from '../services/note.service';
 import {Toast} from 'primeng/toast';
 import {ConfirmationService, MessageService} from 'primeng/api';
 import {NoteDto} from '../dto/note-dto';
 import {Tooltip} from 'primeng/tooltip';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import {DomSanitizer, SafeHtml} from '@angular/platform-browser';
 import {Fieldset} from 'primeng/fieldset';
 import {Image} from 'primeng/image';
 import {catchError, of, switchMap, tap} from 'rxjs';
 import {AuthService} from '../services/auth.service';
 import {Router} from '@angular/router';
 import {ConfirmPopup, ConfirmPopupModule} from 'primeng/confirmpopup';
+import {ProgressBar} from 'primeng/progressbar';
+import {Skeleton} from 'primeng/skeleton';
+import {Select} from 'primeng/select';
+import {UserAccountPermission} from '../dto/user-account-permission';
 
 interface Column {
   field: string;
   header: string;
+}
+
+interface Scope {
+  name: string;
+  code: string;
 }
 
 @Component({
@@ -44,9 +53,10 @@ interface Column {
     Fieldset,
     Image,
     ButtonDirective,
-    ButtonLabel,
-    ButtonIcon,
-    ConfirmPopupModule
+    ConfirmPopupModule,
+    ProgressBar,
+    Skeleton,
+    Select
   ],
   templateUrl: './note-list.component.html',
   styleUrl: './note-list.component.css',
@@ -57,41 +67,58 @@ export class NoteListComponent implements OnInit {
   visiblePopupCreator = false;
   visiblePopupEditor = false;
   visibleViewer = false;
-  visibleQr = false;
+  visibleShareNote = false;
   colsTable!: Column[];
   first = 0;
   rows = 10;
   totalRecords = 0;
   searchNoteQuery: string = '';
+  loadingEditorData: boolean = false;
 
   currentNoteView?: NoteDto;
-  currentNoteEditor?: NoteDto;
+  currentNoteIdEditor?: string | null;
+  loadingSharedData: boolean = false;
+  currentShareNoteId?: string | null;
+
   qrNote = signal<string>('');
-  qrLink = signal<string>('');
+  qrLink: string = '';
 
   noteFormCreator = new FormGroup({
-    title: new FormControl<string|null>(null),
-    content: new FormControl<string|null>(null)
+    title: new FormControl<string | null>(null),
+    content: new FormControl<string | null>(null)
   })
   noteFormEditor = new FormGroup({
-    id: new FormControl<string|null>(null),
-    title: new FormControl<string|null>(null),
-    content: new FormControl<string|null>(null)
+    id: new FormControl<string | null>(null),
+    title: new FormControl<string | null>(null),
+    content: new FormControl<string | null>(null)
   })
 
+  formInvite = new FormGroup({
+    email: new FormControl<string>('', [Validators.required, Validators.email]),
+    permission: new FormControl<Scope | null>(null, [Validators.required])
+  })
+
+  scopes: Scope[] = [
+    {name: 'View permission', code: 'view'},
+    {name: 'Edit permission', code: 'edit'}
+  ];
+
+  loadingUserAccessNote = false;
+  listUserAccessNote: UserAccountPermission[] = []
 
   constructor(private noteService: NoteService, private messageService: MessageService, protected sanitizer: DomSanitizer,
-              protected authService: AuthService, private router: Router, private confirmationService: ConfirmationService) { }
+              protected authService: AuthService, private router: Router, private confirmationService: ConfirmationService) {
+  }
 
   ngOnInit() {
 
     this.colsTable = [
-      { field: 'stt', header: 'Stt' },
-      { field: 'id', header: 'ID' },
-      { field: 'createdAt', header: 'Created at' },
-      { field: 'title', header: 'Title' },
-      { field: 'content', header: 'Content' },
-      { field: 'action', header: 'Action' }
+      {field: 'stt', header: 'Stt'},
+      {field: 'id', header: 'ID'},
+      {field: 'createdAt', header: 'Created at'},
+      {field: 'title', header: 'Title'},
+      {field: 'content', header: 'Content'},
+      {field: 'action', header: 'Action'}
     ];
 
     if (this.authService.isAuthenticated()) {
@@ -126,10 +153,15 @@ export class NoteListComponent implements OnInit {
       })
     ).subscribe({
       next: (response) => {
-        this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Create note successfully', life: 3000 })
+        this.messageService.add({severity: 'success', summary: 'Info', detail: 'Create note successfully', life: 3000})
       },
       error: (error) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Ops some thing went wrong, try again later',
+          life: 3000
+        })
       },
       complete: () => {
         this.noteFormCreator.reset();
@@ -145,13 +177,19 @@ export class NoteListComponent implements OnInit {
         this.totalRecords = response.page.totalElements;
       },
       error: (error) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Ops some thing went wrong, try again later',
+          life: 3000
+        })
       },
       complete: () => {
 
       }
     })
   }
+
   next() {
     this.first = this.first + this.rows;
   }
@@ -186,23 +224,12 @@ export class NoteListComponent implements OnInit {
         this.currentNoteView = response;
       },
       error: (error) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
-      },
-      complete: () => {
-
-      }
-    })
-  }
-
-  showQr(noteId: string) {
-    this.noteService.genQrShareNote(noteId).subscribe({
-      next: (response) => {
-        this.visibleQr = true;
-        this.qrNote.set('data:image/jpeg;base64,' + response.qr);
-        this.qrLink.set(response.link);
-      },
-      error: (error) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Ops some thing went wrong, try again later',
+          life: 3000
+        })
       },
       complete: () => {
 
@@ -218,8 +245,9 @@ export class NoteListComponent implements OnInit {
   }
 
   copyLink(qrLink: string) {
-    navigator.clipboard.writeText(qrLink).then(r => {});
-    this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Copy successful', life: 3000 })
+    navigator.clipboard.writeText(qrLink).then(r => {
+    });
+    this.messageService.add({severity: 'success', summary: 'Info', detail: 'Copy successful', life: 3000})
   }
 
   openLinkViewContent(noteId: string) {
@@ -244,13 +272,23 @@ export class NoteListComponent implements OnInit {
         this.noteService.deleteNote(noteId).subscribe({
           next: (response) => {
             if (response && response.status == 200) {
-              this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Deleted note', life: 3000 });
+              this.messageService.add({severity: 'success', summary: 'Info', detail: 'Deleted note', life: 3000});
             } else {
-              this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 });
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Ops some thing went wrong, try again later',
+                life: 3000
+              });
             }
           },
           error: (error) => {
-            this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'Ops some thing went wrong, try again later',
+              life: 3000
+            })
           },
           complete: () => {
             this.getNotes(this.first, this.rows, this.searchNoteQuery);
@@ -258,24 +296,9 @@ export class NoteListComponent implements OnInit {
         });
       },
       reject: () => {
-        this.messageService.add({ severity: 'error', summary: 'Rejected', detail: 'You have rejected', life: 3000 });
+
       }
     });
-  }
-
-  openEditNote($event: Event, noteId: string) {
-    this.noteFormEditor.reset();
-    this.noteService.getContent(noteId).subscribe({
-      next: (response) => {
-        this.visiblePopupEditor = true;
-        this.currentNoteEditor = response;
-      },
-      error: (error) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
-      },
-      complete: () => {
-      }
-    })
   }
 
   editNote($event: Event) {
@@ -296,10 +319,15 @@ export class NoteListComponent implements OnInit {
       })
     ).subscribe({
       next: (response) => {
-        this.messageService.add({ severity: 'success', summary: 'Info', detail: 'Edit note successfully', life: 3000 })
+        this.messageService.add({severity: 'success', summary: 'Info', detail: 'Edit note successfully', life: 3000})
       },
       error: (error) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Ops some thing went wrong, try again later', life: 3000 })
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Ops some thing went wrong, try again later',
+          life: 3000
+        })
       },
       complete: () => {
         this.noteFormEditor.reset();
@@ -308,13 +336,153 @@ export class NoteListComponent implements OnInit {
     });
   }
 
-  fillFormEditor() {
-    if (this.currentNoteEditor) {
-      this.noteFormEditor.setValue({
-        id: this.currentNoteEditor.id,
-        title: this.currentNoteEditor.title,
-        content: this.currentNoteEditor.content
+  openEditNote($event: Event, noteId: string) {
+    this.noteFormEditor.reset();
+    this.loadingEditorData = true;
+    this.visiblePopupEditor = true;
+    this.currentNoteIdEditor = noteId;
+  }
+
+  onShowEditNoteDialog() {
+    if (this.currentNoteIdEditor) {
+      this.noteService.getContent(this.currentNoteIdEditor).subscribe({
+        next: (response) => {
+          this.loadingEditorData = false;
+          this.noteFormEditor.reset();
+          this.noteFormEditor.setValue({
+            id: response.id,
+            title: response.title,
+            content: response.content
+          })
+        },
+        error: (error) => {
+          this.visiblePopupEditor = false;
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Ops some thing went wrong, try again later',
+            life: 3000
+          })
+        },
+        complete: () => {
+          this.loadingEditorData = false;
+          this.currentNoteIdEditor = null;
+        }
       })
     }
+  }
+
+  openShareDialog(noteId: string) {
+    this.loadingSharedData = true;
+    this.currentShareNoteId = noteId;
+    this.visibleShareNote = true;
+
+    console.log(this.currentShareNoteId)
+  }
+
+  onShowQrShareDialog() {
+    this.noteService.genQrShareNote(this.currentShareNoteId).subscribe({
+      next: (response) => {
+        this.loadingSharedData = false;
+        this.qrNote.set('data:image/jpeg;base64,' + response.qr);
+        this.qrLink = response.link;
+      },
+      error: (error) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Ops some thing went wrong, try again later',
+          life: 3000
+        })
+      },
+      complete: () => {
+        this.loadingSharedData = false;
+      }
+    })
+    this.loadingUserAccessNote = true;
+    this.noteService.getListAccountAccessNote(this.currentShareNoteId).subscribe({
+      next: (response) => {
+        this.loadingUserAccessNote = false;
+        this.listUserAccessNote = response.accountList;
+      },
+      error: (error) => {
+        this.loadingUserAccessNote = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Ops some thing went wrong, try again later',
+          life: 3000
+        })
+      },
+      complete: () => {
+        this.loadingUserAccessNote = false;
+      }
+    })
+  }
+
+  onHideShareDialog() {
+
+  }
+
+  changeUserPermission($event: Event, email: string) {
+    var permission = ($event.target as HTMLSelectElement).value;
+
+    this.noteService.changePermission(email, this.currentShareNoteId, permission).pipe(
+      switchMap(value => {
+        this.loadingUserAccessNote = true;
+        return this.noteService.getListAccountAccessNote(this.currentShareNoteId);
+      })
+    ).subscribe({
+      next: (response) => {
+        this.loadingUserAccessNote = false;
+        this.listUserAccessNote = response.accountList;
+      },
+      error: (error) => {
+        this.loadingUserAccessNote = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Ops some thing went wrong, try again later',
+          life: 3000
+        })
+      },
+      complete: () => {
+        this.loadingUserAccessNote = false;
+      }
+    })
+  }
+
+  submitInvite($event: Event) {
+    $event.preventDefault();
+    $event.stopPropagation();
+
+
+    this.noteService.changePermission(this.formInvite.value['email'], this.currentShareNoteId, this.formInvite.value['permission']?.code).pipe(
+      switchMap(value => {
+        this.loadingUserAccessNote = true;
+        return this.noteService.getListAccountAccessNote(this.currentShareNoteId);
+      })
+    ).subscribe({
+      next: (response) => {
+        this.loadingUserAccessNote = false;
+        this.listUserAccessNote = response.accountList;
+        this.formInvite.reset()
+      },
+      error: (error) => {
+        this.loadingUserAccessNote = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Ops some thing went wrong, try again later',
+          life: 3000
+        })
+        this.formInvite.reset()
+      },
+      complete: () => {
+        this.loadingUserAccessNote = false;
+        this.formInvite.reset()
+      }
+    })
+
   }
 }
